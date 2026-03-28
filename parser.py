@@ -196,20 +196,20 @@ def is_primitive(token: Token):
     return token.type in {TokenType.STRING, TokenType.NUMBER, TokenType.BOOLEAN}
 
 
-def build_ast(tokens: list[Token]) -> JSONNode:
-    # print("building ast")
-    # pprint(tokens)
+def build_primitive_ast(tokens: list[Token]):
+    token = tokens[0]
+    type_to_ast_node = {
+        TokenType.STRING: JSONString,
+        TokenType.NUMBER: JSONNumber,
+        TokenType.BOOLEAN: JSONBoolean,
+    }
+    return type_to_ast_node[token.type](token.literal)
 
+
+def build_ast(tokens: list[Token]) -> JSONNode:
     # base case: primitives string, number, boolean
     if len(tokens) == 1:
-        token = tokens[0]
-
-        if token.type == TokenType.STRING:
-            return JSONString(value=token.literal)
-        elif token.type == TokenType.NUMBER:
-            return JSONNumber(value=token.literal)
-        elif token.type == TokenType.BOOLEAN:
-            return JSONBoolean(value=token.literal)
+        return build_primitive_ast(tokens)
 
     # parse json dict or list
     if len(tokens) >= 2:
