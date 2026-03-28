@@ -15,6 +15,7 @@ class TokenType(Enum):
     LEFT_PARENTHESIS = "LEFT_PARENTHESIS"
     RIGHT_PARENTHESIS = "RIGHT_PARENTHESIS"
     COLON = "COLON"
+    COMMA = "COMMA"
 
     # primitives
     STRING = "STRING"
@@ -70,6 +71,8 @@ class Scanner:
             self.tokens.append(Token(type=TokenType.RIGHT_PARENTHESIS, lexme=char))
         elif char == ":":
             self.tokens.append(Token(type=TokenType.COLON, lexme=char))
+        elif char == ",":
+            self.tokens.append(Token(type=TokenType.COMMA, lexme=char))
         elif char == '"':
             self.scan_string()
         elif is_digit(char):
@@ -190,7 +193,7 @@ class JSONDict:
 
 
 def is_primitive(token: Token):
-    return token.type in {TokenType.STRING, TokenType.NUMBER}
+    return token.type in {TokenType.STRING, TokenType.NUMBER, TokenType.BOOLEAN}
 
 
 def build_ast(tokens: list[Token]) -> JSONNode:
@@ -232,6 +235,8 @@ def build_dict_ast(tokens: list[Token]) -> JSONDict:
     fields: dict[str, JSONNode] = {}
 
     while i < num_tokens - 1:
+        start = i
+
         # make sure key and colon types are correct
         key = tokens[i]
         colon = tokens[i + 1]
@@ -245,17 +250,43 @@ def build_dict_ast(tokens: list[Token]) -> JSONDict:
         value_tokens = [tokens[i + 2]]
 
         # handle primitive values string, number, boolean
-        if value_tokens[0].type == TokenType.STRING:
-            value = build_ast(value_tokens)
-            i = i + 3  # advance to next key
-        elif value_tokens[0].type == TokenType.NUMBER:
-            value = build_ast(value_tokens)
-            i = i + 3
-        elif value_tokens[0].type == TokenType.BOOLEAN:
-            value = build_ast(value_tokens)
-            i = i + 3
+        if is_primitive(tokens[i + 2]):
+            if value_tokens[0].type == TokenType.STRING:
+                value = build_ast(value_tokens)
+                i = i + 4  # advance to next key
+            elif value_tokens[0].type == TokenType.NUMBER:
+                value = build_ast(value_tokens)
+                i = i + 4
+            elif value_tokens[0].type == TokenType.BOOLEAN:
+                value = build_ast(value_tokens)
+                i = i + 4
 
-        fields[key] = value
+            fields[key] = value
+        else:
+            print(value_tokens)
+            print("not primitive token")
+
+            # find the closing parenthesis or bracket
+            counter = 1
+            start = i + 2
+            i = i + 3
+            while counter != 0 and i < num_tokens:
+                # print(tokens[i])
+                token = tokens[i]
+                if token.type == TokenType.LEFT_PARENTHESIS:
+                    counter += 1
+                    # print("left parenthesis")
+                elif token.type == TokenType.RIGHT_PARENTHESIS:
+                    counter -= 1
+                    # print("right parenthesis")
+                else:
+                    # print("neither")
+                    pass
+
+                i += 1
+
+            value = build_ast(tokens[start:i])
+            fields[key] = value
 
     return JSONDict(fields=fields)
 

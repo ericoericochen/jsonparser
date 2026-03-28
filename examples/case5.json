@@ -1,0 +1,11 @@
+{
+  "name": "John Doe",
+  "age": 5,
+  "can_drive": false,
+  "address": {
+    "street": "123 West 1st Street",
+    "city": "NY",
+    "state": "NY",
+    "zip": 12345
+  }
+}
