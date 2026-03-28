@@ -1,6 +1,8 @@
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from dataclasses import dataclass
+
+from pprint import pprint
 
 
 class TokenType(Enum):
@@ -14,7 +16,7 @@ class TokenType(Enum):
 class Token:
     type: TokenType
     lexme: str
-    literal: object = None
+    literal: Optional[object] = None
 
 
 class Scanner:
@@ -50,14 +52,34 @@ class Scanner:
         elif char == "\n":
             return
         elif char == '"':
-            print("start of string mook")
+            self.scan_string()
+
+    def scan_string(self):
+        # stop at the char "
+        while self.peek() != '"':
+            self.advance()
+
+        # consume the char, now 1 index ahead of "
+        self.advance()
+
+        string = self.source[self.start : self.current]
+        self.tokens.append(
+            Token(
+                type=TokenType.STRING,
+                lexme=string,
+                literal=string[1:-1],  # remove the starting and end quotes
+            )
+        )
+
+    def peek(self):
+        return self.source[self.current]
 
     def scan_tokens(self):
         while not self.is_at_end():
             self.start = self.current
             self.scan_token()
 
-        print(self.tokens)
+        return self.tokens
 
 
 if __name__ == "__main__":
@@ -66,4 +88,6 @@ if __name__ == "__main__":
         json_str = f.read()
 
     scanner = Scanner(json_str)
-    scanner.scan_tokens()
+    tokens = scanner.scan_tokens()
+
+    pprint(tokens)
