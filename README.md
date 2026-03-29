@@ -1,2 +1,5 @@
 # jsonparser
-A recursive descent json parser
+
+An implementation of `json.loads` to parse a string into json.
+
+## Overview

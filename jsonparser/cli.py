@@ -2,7 +2,7 @@ import argparse
 
 from pprint import pprint
 
-from parser import Scanner, build_ast
+from .parser import Scanner, build_ast
 
 
 argparser = argparse.ArgumentParser()

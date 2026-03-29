@@ -1,7 +1,6 @@
 from enum import Enum
 from typing import List, Optional, Dict
 from dataclasses import dataclass
-from pprint import pprint
 from abc import ABC, abstractmethod
 
 
@@ -107,12 +106,13 @@ class Scanner:
 
     def scan_number(self):
         # TODO: refactor below
-        while is_digit(self.peek()):
+        # do not advance if we're at the end of source
+        while not self.is_at_end() and is_digit(self.peek()):
             self.advance()
 
-        if self.peek() == "." and is_digit(self.peek(1)):
+        if not self.is_at_end() and self.peek() == "." and is_digit(self.peek(1)):
             self.advance()
-            while is_digit(self.peek()):
+            while not self.is_at_end() and is_digit(self.peek()):
                 self.advance()
 
         lexme = self.get_lexme()
@@ -125,7 +125,7 @@ class Scanner:
         self.tokens.append(Token(type=TokenType.NUMBER, lexme=lexme, literal=literal))
 
     def scan_boolean(self):
-        while is_lowercase_alpha(self.peek()):
+        while not self.is_at_end() and is_lowercase_alpha(self.peek()):
             self.advance()
 
         lexme = self.get_lexme()
