@@ -14,6 +14,8 @@ class TokenType(Enum):
     # symbols
     LEFT_PARENTHESIS = "LEFT_PARENTHESIS"
     RIGHT_PARENTHESIS = "RIGHT_PARENTHESIS"
+    LEFT_BRACKET = "LEFT_BRACKET"
+    RIGHT_BRACKET = "RIGHT_BRACKET"
     COLON = "COLON"
     COMMA = "COMMA"
 
@@ -69,6 +71,10 @@ class Scanner:
             self.tokens.append(Token(type=TokenType.LEFT_PARENTHESIS, lexme=char))
         elif char == "}":
             self.tokens.append(Token(type=TokenType.RIGHT_PARENTHESIS, lexme=char))
+        elif char == "[":
+            self.tokens.append(Token(TokenType.LEFT_BRACKET, char))
+        elif char == "]":
+            self.tokens.append(Token(TokenType.RIGHT_BRACKET, char))
         elif char == ":":
             self.tokens.append(Token(type=TokenType.COLON, lexme=char))
         elif char == ",":
@@ -119,7 +125,6 @@ class Scanner:
         self.tokens.append(Token(type=TokenType.NUMBER, lexme=lexme, literal=literal))
 
     def scan_boolean(self):
-        print("scanning boolean yo")
         while is_lowercase_alpha(self.peek()):
             self.advance()
 
@@ -186,10 +191,18 @@ class JSONBoolean:
 
 @dataclass
 class JSONDict:
-    fields: dict[JSONString, JSONNode]
+    value: dict[JSONString, JSONNode]
 
     def eval(self) -> JSON:
-        return {k.eval(): v.eval() for k, v in self.fields.items()}
+        return {k.eval(): v.eval() for k, v in self.value.items()}
+
+
+@dataclass
+class JSONList:
+    value: list[JSONNode]
+
+    def eval(self) -> JSON:
+        return [node.eval() for node in self.value]
 
 
 def is_primitive(token: Token):
@@ -222,12 +235,77 @@ def build_ast(tokens: list[Token]) -> JSONNode:
         ):
             return build_dict_ast(tokens)
 
+        if (
+            first_token.type == TokenType.LEFT_BRACKET
+            and last_token.type == TokenType.RIGHT_BRACKET
+        ):
+            return build_list_ast(tokens)
+
+
+def find_closing_token(tokens: list[Token], start: int):
+    """
+    Find the index of the closing right parenthesis or bracket depending on
+    `tokens[start]`.
+    """
+    first_token = tokens[start]
+    assert first_token.type in {
+        TokenType.LEFT_PARENTHESIS,
+        TokenType.LEFT_BRACKET,
+    }
+
+    counter = 1
+    i = start + 1
+
+    while counter != 0 and i < len(tokens):
+        token = tokens[i]
+        if token.type == TokenType.LEFT_PARENTHESIS:
+            counter += 1
+        elif token.type == TokenType.RIGHT_PARENTHESIS:
+            counter -= 1
+        elif token.type == TokenType.LEFT_BRACKET:
+            counter += 1
+        elif token.type == TokenType.RIGHT_BRACKET:
+            counter -= 1
+
+        i += 1
+
+    # i is 1 index ahead of the closing token
+    return i - 1
+
+
+def build_list_ast(tokens: list[Token]) -> JSONList:
+    """
+    Builds a JSONList AST.
+
+    Requires:
+        - first token is a left bracket [
+        - last token is a right bracket ]
+    """
+
+    list_value = []
+    i = 1
+    num_tokens = len(tokens)
+
+    while i < num_tokens - 1:
+        token = tokens[i]
+        if is_primitive(token):
+            list_value.append(build_ast([token]))
+            i += 2  # skip comma to the next token
+        else:
+            closing_index = find_closing_token(tokens, i)
+            list_value.append(build_ast(tokens[i : closing_index + 1]))
+            i = closing_index + 2  # skip comma to the next token
+
+    return JSONList(list_value)
+
 
 def build_dict_ast(tokens: list[Token]) -> JSONDict:
     """
     Builds a JSONDict AST.
 
-    Requires first token to be a left parenthesis and last token to be a right parenthesis.
+    Requires:
+        - first token is a left parenthesis (
+        - last token is a right parenthesis )
     """
 
     i = 1
@@ -246,52 +324,26 @@ def build_dict_ast(tokens: list[Token]) -> JSONDict:
 
         key = build_ast([key])
 
-        # parse value into JSONNode
-        value_tokens = [tokens[i + 2]]
-
         # handle primitive values string, number, boolean
         if is_primitive(tokens[i + 2]):
-            if value_tokens[0].type == TokenType.STRING:
-                value = build_ast(value_tokens)
-                i = i + 4  # advance to next key
-            elif value_tokens[0].type == TokenType.NUMBER:
-                value = build_ast(value_tokens)
-                i = i + 4
-            elif value_tokens[0].type == TokenType.BOOLEAN:
-                value = build_ast(value_tokens)
-                i = i + 4
-
+            value = build_ast(tokens[i + 2 : i + 3])
+            i = i + 4  # skip key, colon, value, comma
             fields[key] = value
         else:
-            print(value_tokens)
-            print("not primitive token")
-
-            # find the closing parenthesis or bracket
-            counter = 1
+            # value is another dict or list - find the closing right parenthesis or bracket
+            # then parse all the tokens in between into an ast
             start = i + 2
-            i = i + 3
-            while counter != 0 and i < num_tokens:
-                # print(tokens[i])
-                token = tokens[i]
-                if token.type == TokenType.LEFT_PARENTHESIS:
-                    counter += 1
-                    # print("left parenthesis")
-                elif token.type == TokenType.RIGHT_PARENTHESIS:
-                    counter -= 1
-                    # print("right parenthesis")
-                else:
-                    # print("neither")
-                    pass
-
-                i += 1
-
-            value = build_ast(tokens[start:i])
+            close_index = find_closing_token(tokens, start)
+            value = build_ast(tokens[start : close_index + 1])
             fields[key] = value
+            i = close_index + 1
 
-    return JSONDict(fields=fields)
+    return JSONDict(fields)
 
 
-def parse(tokens: List[Token]) -> JSON:
-    print("parsing tokens into json")
-
-    pprint(tokens)
+def json_loads(s: str) -> JSON:
+    scanner = Scanner(s)
+    tokens = scanner.scan_tokens()
+    ast = build_ast(tokens)
+    j = ast.eval()
+    return j

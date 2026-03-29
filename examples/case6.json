@@ -1,0 +1,13 @@
+{
+  "name": "John Doe",
+  "age": 5,
+  "can_drive": false,
+  "hobbies": [
+    "basketball",
+    "soccer",
+    false,
+    true,
+    { "name": "coding" },
+    { "name": "painting", "projects": ["landscape", "portrait"] }
+  ]
+}

@@ -32,4 +32,4 @@ print("=" * 100)
 parsed_json = ast.eval()
 
 print("parsed: ")
-pprint(parsed_json)
+print(parsed_json)
